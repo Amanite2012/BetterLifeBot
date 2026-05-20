@@ -1,0 +1,46 @@
+"""Kafka topic names used across BetterLifeBot."""
+
+HABITS_EVENTS = "betterlife.habits.events"
+WELLBEING_EVENTS = "betterlife.wellbeing.events"
+PRODUCTIVITY_EVENTS = "betterlife.productivity.events"
+SPORT_EVENTS = "betterlife.sport.events"
+RPG_EVENTS = "betterlife.rpg.events"
+GARMIN_EVENTS = "betterlife.garmin.events"
+PENALTIES_EVENTS = "betterlife.penalties.events"
+DATA_RAW = "betterlife.data.raw"
+
+ALL_TOPICS = [
+    HABITS_EVENTS,
+    WELLBEING_EVENTS,
+    PRODUCTIVITY_EVENTS,
+    SPORT_EVENTS,
+    RPG_EVENTS,
+    GARMIN_EVENTS,
+    PENALTIES_EVENTS,
+    DATA_RAW,
+]
+
+# ── Event type constants ──────────────────────────────────────────────────────
+
+# RPG events
+TASK_COMPLETED_RPG = "TASK_COMPLETED_RPG"
+LEVEL_UP = "LEVEL_UP"
+SKILL_UP = "SKILL_UP"
+STREAK_RPG_BONUS = "STREAK_RPG_BONUS"
+REDEMPTION_BONUS = "REDEMPTION_BONUS"
+
+# Garmin events
+SLEEP_LOGGED = "SLEEP_LOGGED"
+SLEEP_ALERT = "SLEEP_ALERT"
+BODY_BATTERY_LOW = "BODY_BATTERY_LOW"
+SLEEP_STREAK_BONUS = "SLEEP_STREAK_BONUS"
+
+# Penalty events
+DAILY_AUDIT_TRIGGERED = "DAILY_AUDIT_TRIGGERED"
+PENALTY_APPLIED = "PENALTY_APPLIED"
+SOFT_WARNING_SENT = "SOFT_WARNING_SENT"
+STREAK_BROKEN = "STREAK_BROKEN"
+RECIDIVE_INCREMENTED = "RECIDIVE_INCREMENTED"
+RECIDIVE_RESET = "RECIDIVE_RESET"
+RECOVERY_CHALLENGE_SENT = "RECOVERY_CHALLENGE_SENT"
+GRACE_DAY_USED = "GRACE_DAY_USED"
