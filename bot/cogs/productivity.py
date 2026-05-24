@@ -12,7 +12,7 @@ from sqlalchemy import select
 from bot.database.connection import get_session
 from bot.database.models import DailyLog, TaskPriority, TaskTag, User
 from bot.services.todoist import TodoistClient, parse_priority, parse_tag
-from bot.services.encryption import decrypt
+from bot.services.encryption import decrypt, encrypt
 from bot.utils.embeds import PRIORITY_EMOJI, TAG_EMOJI
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,42 @@ logger = logging.getLogger(__name__)
 class ProductivityCog(commands.Cog, name="Productivity"):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
+
+    @app_commands.command(name="connect-todoist", description="Connecte ton compte Todoist avec ta clé API")
+    @app_commands.describe(api_key="Ta clé API Todoist (Paramètres → Intégrations → Clé API)")
+    async def connect_todoist(self, interaction: discord.Interaction, api_key: str) -> None:
+        await interaction.response.defer(ephemeral=True)
+        client = TodoistClient(api_key)
+        try:
+            todoist_user = await client.get_current_user()
+        except Exception:
+            await interaction.followup.send(
+                "Clé API invalide. Vérifie ta clé sur todoist.com → Paramètres → Intégrations.",
+                ephemeral=True,
+            )
+            return
+
+        todoist_user_id = str(todoist_user.get("id", ""))
+        async with get_session() as session:
+            user_result = await session.execute(
+                select(User).where(User.discord_id == interaction.user.id)
+            )
+            user = user_result.scalar_one_or_none()
+            if not user:
+                await interaction.followup.send("Profil introuvable. Utilise `/register` d'abord.", ephemeral=True)
+                return
+
+            user.todoist_access_token = encrypt(api_key)
+            user.todoist_user_id = todoist_user_id
+            session.add(user)
+
+        name = todoist_user.get("full_name") or todoist_user.get("email", "")
+        embed = discord.Embed(
+            title="✅ Todoist connecté",
+            description=f"Compte **{name}** lié avec succès.\nUtilise `/sync-todoist` pour importer tes tâches.",
+            color=discord.Color.green(),
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @app_commands.command(name="sync-todoist", description="Synchronise tes tâches Todoist du jour")
     async def sync_todoist(self, interaction: discord.Interaction) -> None:

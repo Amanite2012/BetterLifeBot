@@ -20,7 +20,8 @@ class Settings(BaseSettings):
     kafka_bootstrap_servers: str = "kafka:9092"
     kafka_group_id: str = "betterlifebot"
 
-    # Todoist
+    # Todoist — clé API par utilisateur stockée chiffrée en DB (pas OAuth)
+    # todoist_webhook_secret : secret HMAC pour valider les webhooks entrants depuis Todoist
     todoist_webhook_secret: str = ""
 
     # Garmin (OAuth 1.0a consumer credentials)

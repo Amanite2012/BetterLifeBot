@@ -56,6 +56,16 @@ class TodoistClient:
                 resp.raise_for_status()
                 return await resp.json()
 
+    async def get_current_user(self) -> dict[str, Any]:
+        """Return Todoist user info (id, email, full_name) to associate with Discord user."""
+        async with aiohttp.ClientSession() as s:
+            async with s.get(
+                f"{TODOIST_SYNC}/user",
+                headers=self._headers,
+            ) as resp:
+                resp.raise_for_status()
+                return await resp.json()
+
 
 def parse_priority(todoist_priority: int) -> str:
     """Todoist priority is 1(normal) – 4(urgent); we invert to P1–P4."""
