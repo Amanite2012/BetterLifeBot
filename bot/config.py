@@ -21,11 +21,9 @@ class Settings(BaseSettings):
     kafka_group_id: str = "betterlifebot"
 
     # Todoist
-    todoist_client_id: str = ""
-    todoist_client_secret: str = ""
     todoist_webhook_secret: str = ""
 
-    # Garmin
+    # Garmin (OAuth 1.0a consumer credentials)
     garmin_consumer_key: str = ""
     garmin_consumer_secret: str = ""
     garmin_oauth_callback_url: str = ""
@@ -44,11 +42,9 @@ class Settings(BaseSettings):
     # Webhook server
     webhook_host: str = "0.0.0.0"
     webhook_port: int = 8080
-    public_base_url: str = "https://yourdomain.com"
 
     # Behaviour
-    default_sleep_goal_hours: int = 8
-    body_battery_poll_interval_hours: int = 4
+    default_sleep_goal_hours: float = 8.0
 
     def encryption_key_bytes(self) -> bytes:
         return base64.b64decode(self.encryption_key)

@@ -83,9 +83,11 @@ class GarminClient:
 
 def build_oauth_url() -> str:
     settings = get_settings()
+    # OAuth 1.0a request-token step: consumer_key identifies the application
     return (
         f"{GARMIN_AUTH_BASE}/oauth-service/oauth/authorize"
-        f"?oauth_callback={settings.garmin_oauth_callback_url}"
+        f"?oauth_consumer_key={settings.garmin_consumer_key}"
+        f"&oauth_callback={settings.garmin_oauth_callback_url}"
     )
 
 

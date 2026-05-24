@@ -198,7 +198,12 @@ class HabitsCog(commands.Cog, name="Habits"):
                 return
 
             from bot.database.models import UserProfile
-            user = User(discord_id=interaction.user.id, timezone=timezone)
+            from bot.config import get_settings
+            user = User(
+                discord_id=interaction.user.id,
+                timezone=timezone,
+                sleep_goal_hours=get_settings().default_sleep_goal_hours,
+            )
             session.add(user)
             await session.flush()
             profile = UserProfile(user_id=user.id)
