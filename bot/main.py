@@ -5,6 +5,7 @@ import asyncio
 import logging
 import signal
 import sys
+import traceback
 
 import discord
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -32,6 +33,21 @@ intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 scheduler = AsyncIOScheduler()
+
+DEBUG_CHANNEL_ID = get_settings().discord_debug_channel_id
+
+
+async def send_debug(title: str, detail: str) -> None:
+    channel = bot.get_channel(DEBUG_CHANNEL_ID)
+    if channel is None:
+        return
+    # Truncate to Discord's 4096-char embed limit
+    detail = detail[-3900:] if len(detail) > 3900 else detail
+    embed = discord.Embed(title=f"🐛 {title}", description=f"```\n{detail}\n```", color=discord.Color.red())
+    try:
+        await channel.send(embed=embed)
+    except Exception:
+        logger.exception("Failed to send debug message to channel")
 
 COGS = [
     "bot.cogs.habits",
@@ -66,7 +82,25 @@ async def on_ready() -> None:
 
 @bot.event
 async def on_error(event: str, *args, **kwargs) -> None:
-    logger.exception("Unhandled error in event %s", event)
+    tb = traceback.format_exc()
+    logger.error("Unhandled error in event %s\n%s", event, tb)
+    await send_debug(f"on_error — {event}", tb)
+
+
+@bot.tree.error
+async def on_app_command_error(
+    interaction: discord.Interaction,
+    error: discord.app_commands.AppCommandError,
+) -> None:
+    tb = "".join(traceback.format_exception(type(error), error, error.__traceback__))
+    cmd = interaction.command.name if interaction.command else "unknown"
+    logger.error("App command error in /%s\n%s", cmd, tb)
+    await send_debug(f"/{cmd} — {type(error).__name__}", tb)
+    msg = "Une erreur interne s'est produite. L'équipe a été notifiée."
+    if interaction.response.is_done():
+        await interaction.followup.send(msg, ephemeral=True)
+    else:
+        await interaction.response.send_message(msg, ephemeral=True)
 
 
 async def load_cogs() -> None:

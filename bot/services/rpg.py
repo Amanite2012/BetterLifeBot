@@ -58,7 +58,9 @@ MAX_LEVEL = 50
 
 
 def xp_required(level: int) -> int:
-    """XP needed to reach `level` from level-1 cumulative baseline."""
+    """Total cumulative XP needed to reach this level. Level 1 = 0 (starting level)."""
+    if level <= 1:
+        return 0
     return int(100 * (level ** 1.8))
 
 

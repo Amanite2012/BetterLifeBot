@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from bot.database.connection import get_session
 from bot.database.models import GratitudeEntry, User, WillpowerChallenge
+from bot.database.queries import get_user_by_discord_id, get_user_by_id
 from bot.utils.embeds import COLOR_SUCCESS, COLOR_WARNING, COLOR_DANGER
 
 logger = logging.getLogger(__name__)
@@ -51,10 +52,7 @@ class ChallengeView(discord.ui.View):
                 await interaction.response.send_message("Défi déjà terminé.", ephemeral=True)
                 return
 
-            user_result = await session.execute(
-                select(User).where(User.id == challenge.user_id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_id(session, challenge.user_id)
             if not user:
                 return
 
@@ -90,10 +88,7 @@ class ChallengeView(discord.ui.View):
             challenge = result.scalar_one_or_none()
             if challenge and challenge.completed is None:
                 challenge.completed = False
-                user_result = await session.execute(
-                    select(User).where(User.id == challenge.user_id)
-                )
-                user = user_result.scalar_one_or_none()
+                user = await get_user_by_id(session, challenge.user_id)
                 if user:
                     user.profile.willpower_level = max(1, user.profile.willpower_level - 1)
                     session.add(user.profile)
@@ -110,10 +105,7 @@ class WellbeingCog(commands.Cog, name="Wellbeing"):
         await interaction.response.defer(ephemeral=True)
         today = date.today()
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable. Utilise `/register`.", ephemeral=True)
                 return
@@ -134,10 +126,7 @@ class WellbeingCog(commands.Cog, name="Wellbeing"):
     async def willpower_challenge(self, interaction: discord.Interaction, description: str) -> None:
         await interaction.response.defer(ephemeral=False)
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return
@@ -189,10 +178,7 @@ class WellbeingCog(commands.Cog, name="Wellbeing"):
         await interaction.response.defer(ephemeral=True)
         n = min(n, 20)
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return

@@ -10,7 +10,8 @@ from discord.ext import commands
 from sqlalchemy import desc, select
 
 from bot.database.connection import get_session
-from bot.database.models import DailyLog, ShopItem, User, UserInventory, UserProfile
+from bot.database.models import DailyLog, HabitStreak, PenaltyRecord, ShopItem, User, UserInventory, UserProfile
+from bot.database.queries import get_user_by_discord_id
 from bot.services.rpg import title_for_level, xp_required
 from bot.utils.embeds import (
     COLOR_GOLD,
@@ -49,10 +50,7 @@ class BuyButton(discord.ui.Button):
             await interaction.response.send_message("Ce n'est pas ta boutique !", ephemeral=True)
             return
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user or user.profile.gp < self.item.cost_gp:
                 await interaction.response.send_message("GP insuffisants.", ephemeral=True)
                 return
@@ -78,19 +76,11 @@ class RPGCog(commands.Cog, name="RPG"):
         await interaction.response.defer()
         target = user or interaction.user
         async with get_session() as session:
-            result = await session.execute(
-                select(User).where(User.discord_id == target.id)
-            )
-            db_user = result.scalar_one_or_none()
+            db_user = await get_user_by_discord_id(session, target.id)
             if not db_user or not db_user.profile:
                 await interaction.followup.send("Profil introuvable. Crée-en un avec `/register`.")
                 return
 
-            # Load relations
-            await session.refresh(db_user, ["profile", "skills", "streaks"])
-
-            # Fetch today's penalty
-            from bot.database.models import PenaltyRecord
             penalty_result = await session.execute(
                 select(PenaltyRecord).where(
                     PenaltyRecord.user_id == db_user.id,
@@ -138,7 +128,6 @@ class RPGCog(commands.Cog, name="RPG"):
                 )
                 entries = [{"discord_id": r[0], "value": f"{r[1]} GP"} for r in result.all()]
             else:
-                from bot.database.models import HabitStreak
                 result = await session.execute(
                     select(User.discord_id, HabitStreak.current_streak)
                     .join(HabitStreak, HabitStreak.user_id == User.id)
@@ -155,14 +144,10 @@ class RPGCog(commands.Cog, name="RPG"):
     async def shop(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return
-            await session.refresh(user, ["profile"])
 
             items_result = await session.execute(
                 select(ShopItem).where(ShopItem.is_active == True)  # noqa: E712
@@ -192,14 +177,10 @@ class RPGCog(commands.Cog, name="RPG"):
     async def bonus_actifs(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return
-            await session.refresh(user, ["profile", "skills"])
 
         lines = []
         profile = user.profile
@@ -213,7 +194,6 @@ class RPGCog(commands.Cog, name="RPG"):
         if profile.gp_multiplier != 1.0:
             lines.append(f"💰 Multiplicateur GP ×{profile.gp_multiplier:.1f}")
 
-        # Skill passive bonuses
         for skill in user.skills:
             pts = skill.points
             tag = skill.tag.value if hasattr(skill.tag, "value") else skill.tag

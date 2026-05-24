@@ -10,6 +10,7 @@ from discord.ext import commands
 from sqlalchemy import select, desc
 
 from bot.database.connection import get_session
+from bot.database.queries import get_user_by_discord_id
 from bot.database.models import (
     GraceDay,
     PenaltyRecord,
@@ -83,10 +84,7 @@ class PenaltiesCog(commands.Cog, name="Penalties"):
         await interaction.response.defer(ephemeral=True)
         today = date.today()
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return
@@ -114,10 +112,7 @@ class PenaltiesCog(commands.Cog, name="Penalties"):
         await interaction.response.defer(ephemeral=True)
         n = min(n, 30)
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return
@@ -148,10 +143,7 @@ class PenaltiesCog(commands.Cog, name="Penalties"):
         await interaction.response.defer(ephemeral=True)
         today = date.today()
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return
@@ -216,10 +208,7 @@ class PenaltiesCog(commands.Cog, name="Penalties"):
         year = today.year
 
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return
@@ -255,10 +244,7 @@ class PenaltiesCog(commands.Cog, name="Penalties"):
         await interaction.response.defer(ephemeral=True)
         today = date.today()
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return
@@ -289,10 +275,7 @@ class PenaltiesCog(commands.Cog, name="Penalties"):
         await interaction.response.defer(ephemeral=True)
         today = date.today()
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return

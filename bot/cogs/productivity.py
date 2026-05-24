@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from bot.database.connection import get_session
 from bot.database.models import DailyLog, TaskPriority, TaskTag, User
+from bot.database.queries import get_user_by_discord_id
 from bot.services.todoist import TodoistClient, parse_priority, parse_tag
 from bot.services.encryption import decrypt, encrypt
 from bot.utils.embeds import PRIORITY_EMOJI, TAG_EMOJI
@@ -38,10 +39,7 @@ class ProductivityCog(commands.Cog, name="Productivity"):
 
         todoist_user_id = str(todoist_user.get("id", ""))
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable. Utilise `/register` d'abord.", ephemeral=True)
                 return
@@ -62,10 +60,7 @@ class ProductivityCog(commands.Cog, name="Productivity"):
     async def sync_todoist(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user or not user.todoist_access_token:
                 await interaction.followup.send(
                     "Ton compte Todoist n'est pas connecté. Connecte-le via le tableau de bord.",
@@ -126,10 +121,7 @@ class ProductivityCog(commands.Cog, name="Productivity"):
         await interaction.response.defer(ephemeral=True)
         today = date.today()
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return
@@ -170,10 +162,7 @@ class ProductivityCog(commands.Cog, name="Productivity"):
         await interaction.response.defer(ephemeral=True)
         n = min(n, 25)
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return

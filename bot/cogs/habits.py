@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from bot.database.connection import get_session
 from bot.database.models import DailyLog, HabitStreak, TaskPriority, TaskTag, User
+from bot.database.queries import get_user_by_discord_id, get_user_by_id
 from bot.services.rpg import apply_task_completion
 from bot.services.streak import record_completion
 from bot.utils.embeds import TAG_EMOJI, PRIORITY_EMOJI, COLOR_SUCCESS, COLOR_WARNING
@@ -51,8 +52,7 @@ class HabitValidationView(discord.ui.View):
                 await interaction.response.send_message("Déjà validée !", ephemeral=True)
                 return
 
-            user_result = await session.execute(select(User).where(User.id == log.user_id))
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_id(session, log.user_id)
             if not user or not user.profile:
                 await interaction.response.send_message("Profil introuvable.", ephemeral=True)
                 return
@@ -122,10 +122,7 @@ class HabitsCog(commands.Cog, name="Habits"):
         await interaction.response.defer(ephemeral=True)
         today = date.today()
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Ton profil est introuvable. Utilise `/register`.", ephemeral=True)
                 return
@@ -159,10 +156,7 @@ class HabitsCog(commands.Cog, name="Habits"):
     async def show_streak(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return
@@ -190,10 +184,8 @@ class HabitsCog(commands.Cog, name="Habits"):
     async def register(self, interaction: discord.Interaction, timezone: str = "Europe/Paris") -> None:
         await interaction.response.defer(ephemeral=True)
         async with get_session() as session:
-            existing = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            if existing.scalar_one_or_none():
+            existing = await get_user_by_discord_id(session, interaction.user.id)
+            if existing:
                 await interaction.followup.send("Tu as déjà un profil !", ephemeral=True)
                 return
 

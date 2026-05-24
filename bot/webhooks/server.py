@@ -14,6 +14,7 @@ from sqlalchemy import select
 from bot.config import get_settings
 from bot.database.connection import get_session, init_db
 from bot.database.models import DailyLog, GarminToken, TaskPriority, TaskTag, User
+from bot.database.queries import get_user_by_discord_id, get_user_by_todoist_id
 from bot.kafka import publish, topics
 from bot.services import calendar as cal_service
 from bot.services.encryption import encrypt
@@ -68,10 +69,7 @@ async def _handle_item_completed(payload: dict) -> None:
     todoist_user_id = str(initiator.get("id", ""))
 
     async with get_session() as session:
-        user_result = await session.execute(
-            select(User).where(User.todoist_user_id == todoist_user_id)
-        )
-        user = user_result.scalar_one_or_none()
+        user = await get_user_by_todoist_id(session, todoist_user_id)
         if not user:
             return
 
@@ -107,7 +105,6 @@ async def _handle_item_completed(payload: dict) -> None:
             log.completed_at = datetime.now(timezone.utc)
             session.add(log)
 
-            await session.refresh(user, ["profile", "skills"])
             from bot.services.rpg import apply_task_completion
             from bot.services.streak import record_completion
             xp, gp, levelled_up, skilled_up = await apply_task_completion(session, user, log)
@@ -134,10 +131,7 @@ async def _handle_item_added(payload: dict) -> None:
         return
 
     async with get_session() as session:
-        user_result = await session.execute(
-            select(User).where(User.todoist_user_id == todoist_user_id)
-        )
-        user = user_result.scalar_one_or_none()
+        user = await get_user_by_todoist_id(session, todoist_user_id)
         if not user:
             return
 
@@ -173,10 +167,7 @@ async def google_callback(code: str, state: str) -> dict:
         raise HTTPException(status_code=400, detail="Invalid state")
 
     async with get_session() as session:
-        user_result = await session.execute(
-            select(User).where(User.discord_id == discord_id)
-        )
-        user = user_result.scalar_one_or_none()
+        user = await get_user_by_discord_id(session, discord_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -202,10 +193,7 @@ async def garmin_callback(
     logger.info("Garmin OAuth callback for discord_id=%s", discord_id)
 
     async with get_session() as session:
-        user_result = await session.execute(
-            select(User).where(User.discord_id == discord_id)
-        )
-        user = user_result.scalar_one_or_none()
+        user = await get_user_by_discord_id(session, discord_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 

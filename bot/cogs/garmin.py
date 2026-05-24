@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from bot.database.connection import get_session
 from bot.database.models import GarminToken, SleepLog, User
+from bot.database.queries import get_user_by_discord_id
 from bot.services.garmin import build_oauth_url
 from bot.utils.embeds import build_sleep_embed, COLOR_INFO, COLOR_SUCCESS
 
@@ -39,10 +40,7 @@ class GarminCog(commands.Cog, name="Garmin"):
     async def garmin_status(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return
@@ -71,10 +69,7 @@ class GarminCog(commands.Cog, name="Garmin"):
     async def garmin_disconnect(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return
@@ -96,10 +91,7 @@ class GarminCog(commands.Cog, name="Garmin"):
         await interaction.response.defer(ephemeral=True)
         today = date.today()
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return
@@ -126,10 +118,7 @@ class GarminCog(commands.Cog, name="Garmin"):
         week_ago = today - timedelta(days=7)
 
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return
@@ -173,10 +162,7 @@ class GarminCog(commands.Cog, name="Garmin"):
             await interaction.followup.send("L'objectif doit être entre 4 et 12 heures.", ephemeral=True)
             return
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return
@@ -193,10 +179,7 @@ class GarminCog(commands.Cog, name="Garmin"):
         await interaction.response.defer(ephemeral=True)
         today = date.today()
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return

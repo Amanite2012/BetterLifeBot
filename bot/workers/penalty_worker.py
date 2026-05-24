@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from bot.database.connection import get_session
 from bot.database.models import User
+from bot.database.queries import get_user_by_id
 from bot.kafka import publish, topics
 from bot.services.penalty import run_daily_audit
 from bot.services.rpg import check_combo_bonus
@@ -19,15 +20,9 @@ async def run_audit_for_user(user: User) -> None:
     """Run the penalty audit for a single user."""
     today = date.today()
     async with get_session() as session:
-        # Re-fetch user with relations in this session
-        result = await session.execute(
-            select(User).where(User.id == user.id)
-        )
-        user = result.scalar_one_or_none()
+        user = await get_user_by_id(session, user.id)
         if not user or not user.profile:
             return
-
-        await session.refresh(user, ["profile", "daily_logs"])
 
         # Check combo bonus (3 different tags today)
         combo = await check_combo_bonus(session, user, today)

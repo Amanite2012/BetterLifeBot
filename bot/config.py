@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     # Discord
     discord_token: str
     discord_guild_id: int | None = None
-
+    discord_debug_channel_id: int | None = None
     # Database
     database_url: str = "postgresql+asyncpg://betterlife:password@db:5432/betterlife"
 

@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from bot.database.connection import get_session
 from bot.database.models import User
+from bot.database.queries import get_user_by_discord_id
 from bot.services import calendar as cal_service
 from bot.services import weather as weather_service
 from bot.services.encryption import decrypt
@@ -31,10 +32,7 @@ class SportCog(commands.Cog, name="Sport"):
         await interaction.response.defer(ephemeral=True)
 
         async with get_session() as session:
-            user_result = await session.execute(
-                select(User).where(User.discord_id == interaction.user.id)
-            )
-            user = user_result.scalar_one_or_none()
+            user = await get_user_by_discord_id(session, interaction.user.id)
             if not user:
                 await interaction.followup.send("Profil introuvable.", ephemeral=True)
                 return

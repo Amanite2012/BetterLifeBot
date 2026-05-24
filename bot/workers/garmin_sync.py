@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from bot.database.connection import get_session
 from bot.database.models import GarminToken, SleepLog, User
+from bot.database.queries import get_user_by_id
 from bot.kafka import publish, topics
 from bot.services.encryption import decrypt
 from bot.services.garmin import GarminClient
@@ -18,10 +19,10 @@ logger = logging.getLogger(__name__)
 async def sync_user_garmin(user: User) -> None:
     """Fetch and persist today's Garmin sleep/battery data for one user."""
     async with get_session() as session:
-        token_result = await session.execute(
-            select(GarminToken).where(GarminToken.user_id == user.id)
-        )
-        token = token_result.scalar_one_or_none()
+        user = await get_user_by_id(session, user.id)
+        if not user:
+            return
+        token = user.garmin_token
         if not token:
             return
 
