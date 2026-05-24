@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
+from contextlib import asynccontextmanager
 from datetime import date, datetime, timezone
 
 import uvicorn
@@ -19,12 +20,15 @@ from bot.services.encryption import encrypt
 from bot.services.todoist import parse_priority, parse_tag
 
 logger = logging.getLogger(__name__)
-app = FastAPI(title="BetterLifeBot Webhook Server")
 
 
-@app.on_event("startup")
-async def startup() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     await init_db()
+    yield
+
+
+app = FastAPI(title="BetterLifeBot Webhook Server", lifespan=lifespan)
 
 
 # ── Todoist Webhook ───────────────────────────────────────────────────────────
