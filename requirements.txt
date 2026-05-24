@@ -14,11 +14,14 @@ aiohttp>=3.9.5
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
 
+# Garmin Connect (unofficial web API)
+garminconnect>=0.2.19
+
 # Cryptography
 cryptography>=42.0.5
 
 # Scheduling
-apscheduler>=3.10.4
+apscheduler>=3.10.4,<4.0
 
 # Data processing
 pandas>=2.2.2

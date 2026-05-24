@@ -10,7 +10,7 @@ from bot.database.connection import get_session
 from bot.database.models import GarminToken, SleepLog, User
 from bot.database.queries import get_user_by_id
 from bot.kafka import publish, topics
-from bot.services.encryption import decrypt
+from bot.services.encryption import decrypt, encrypt
 from bot.services.garmin import GarminClient
 
 logger = logging.getLogger(__name__)
@@ -26,9 +26,7 @@ async def sync_user_garmin(user: User) -> None:
         if not token:
             return
 
-        access_token = decrypt(token.access_token_enc)
-        refresh_token = decrypt(token.refresh_token_enc)
-        client = GarminClient(access_token, refresh_token)
+        client = GarminClient(decrypt(token.access_token_enc))
 
         today = date.today()
 
@@ -66,7 +64,8 @@ async def sync_user_garmin(user: User) -> None:
         log.sleep_cycles = max(0, cycles)
         session.add(log)
 
-        # Update token last_sync
+        # Persist potentially refreshed garth token and update last_sync
+        token.access_token_enc = encrypt(client.dump_token())
         token.last_sync = datetime.now(timezone.utc)
         session.add(token)
 

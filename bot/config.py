@@ -24,11 +24,6 @@ class Settings(BaseSettings):
     # todoist_webhook_secret : secret HMAC pour valider les webhooks entrants depuis Todoist
     todoist_webhook_secret: str = ""
 
-    # Garmin (OAuth 1.0a consumer credentials)
-    garmin_consumer_key: str = ""
-    garmin_consumer_secret: str = ""
-    garmin_oauth_callback_url: str = ""
-
     # Google Calendar
     google_client_id: str = ""
     google_client_secret: str = ""

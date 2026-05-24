@@ -12,29 +12,77 @@ from sqlalchemy import select
 from bot.database.connection import get_session
 from bot.database.models import GarminToken, SleepLog, User
 from bot.database.queries import get_user_by_discord_id
-from bot.services.garmin import build_oauth_url
+from bot.services import garmin as garmin_service
+from bot.services.encryption import encrypt
 from bot.utils.embeds import build_sleep_embed, COLOR_INFO, COLOR_SUCCESS
 
 logger = logging.getLogger(__name__)
+
+
+class GarminLoginModal(discord.ui.Modal, title="Connexion Garmin Connect"):
+    email = discord.ui.TextInput(
+        label="Email Garmin Connect",
+        placeholder="email@example.com",
+        required=True,
+    )
+    password = discord.ui.TextInput(
+        label="Mot de passe",
+        style=discord.TextStyle.short,
+        required=True,
+    )
+
+    def __init__(self, bot: commands.Bot) -> None:
+        super().__init__()
+        self.bot = bot
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer(ephemeral=True)
+        try:
+            token_data = await garmin_service.connect(self.email.value, self.password.value)
+        except ValueError as e:
+            await interaction.followup.send(str(e), ephemeral=True)
+            return
+        except ConnectionError as e:
+            await interaction.followup.send(str(e), ephemeral=True)
+            return
+
+        async with get_session() as session:
+            user = await get_user_by_discord_id(session, interaction.user.id)
+            if not user:
+                await interaction.followup.send(
+                    "Profil introuvable. Utilise `/register` d'abord.", ephemeral=True
+                )
+                return
+
+            existing = await session.execute(
+                select(GarminToken).where(GarminToken.user_id == user.id)
+            )
+            token = existing.scalar_one_or_none()
+            if not token:
+                token = GarminToken(user_id=user.id)
+
+            token.access_token_enc = encrypt(token_data)
+            token.refresh_token_enc = encrypt("")
+            session.add(token)
+
+        embed = discord.Embed(
+            title="⌚ Garmin — Connecté ✅",
+            description=(
+                "Ton compte Garmin Connect est lié.\n"
+                "Données synchronisées chaque matin à 06h00."
+            ),
+            color=COLOR_SUCCESS,
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 class GarminCog(commands.Cog, name="Garmin"):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-    @app_commands.command(name="garmin-connect", description="Connecte ta montre Garmin via OAuth 2.0")
+    @app_commands.command(name="garmin-connect", description="Connecte ta montre Garmin via Garmin Connect")
     async def garmin_connect(self, interaction: discord.Interaction) -> None:
-        url = build_oauth_url()
-        embed = discord.Embed(
-            title="⌚ Connexion Garmin Health",
-            description=(
-                f"[Clique ici pour autoriser BetterLifeBot]({url})\n\n"
-                "Tes données de sommeil et Body Battery seront synchronisées chaque matin à 06h00.\n"
-                "_Tokens chiffrés AES-256. Jamais exposés dans les logs._"
-            ),
-            color=discord.Color.blurple(),
-        )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_modal(GarminLoginModal(self.bot))
 
     @app_commands.command(name="garmin-status", description="État de la connexion Garmin")
     async def garmin_status(self, interaction: discord.Interaction) -> None:
@@ -193,15 +241,18 @@ class GarminCog(commands.Cog, name="Garmin"):
             await interaction.followup.send("Données Body Battery non disponibles aujourd'hui.", ephemeral=True)
             return
 
-        color = discord.Color.green() if log.body_battery >= 50 else discord.Color.orange() if log.body_battery >= 20 else discord.Color.red()
-        embed = discord.Embed(
-            title="🔋 Body Battery",
-            description=f"**{log.body_battery}/100**",
-            color=color,
+        color = (
+            discord.Color.green() if log.body_battery >= 50
+            else discord.Color.orange() if log.body_battery >= 20
+            else discord.Color.red()
         )
+        embed = discord.Embed(title="🔋 Body Battery", description=f"**{log.body_battery}/100**", color=color)
         if log.body_battery < 20:
-            embed.add_field(name="⚠️ Attention", value="Battery critique — défis de volonté désactivés et malus réduits.", inline=False)
-
+            embed.add_field(
+                name="⚠️ Attention",
+                value="Battery critique — défis de volonté désactivés et malus réduits.",
+                inline=False,
+            )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
 

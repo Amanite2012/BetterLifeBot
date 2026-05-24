@@ -1,4 +1,4 @@
-"""Todoist REST API v2 client."""
+"""Todoist API v1 client."""
 from __future__ import annotations
 
 import logging
@@ -9,8 +9,7 @@ import aiohttp
 
 logger = logging.getLogger(__name__)
 
-TODOIST_API = "https://api.todoist.com/rest/v2"
-TODOIST_SYNC = "https://api.todoist.com/sync/v9"
+TODOIST_API = "https://api.todoist.com/api/v1"
 
 
 class TodoistClient:
@@ -20,15 +19,15 @@ class TodoistClient:
 
     async def get_tasks_due_today(self) -> list[dict[str, Any]]:
         """Return all tasks due today (any project)."""
-        today = date.today().isoformat()
         async with aiohttp.ClientSession() as s:
             async with s.get(
                 f"{TODOIST_API}/tasks",
                 headers=self._headers,
-                params={"filter": f"due:{today}"},
+                params={"filter": "today"},
             ) as resp:
                 resp.raise_for_status()
-                return await resp.json()
+                data = await resp.json()
+                return data.get("results", [])
 
     async def get_task(self, task_id: str) -> dict[str, Any]:
         async with aiohttp.ClientSession() as s:
@@ -54,13 +53,14 @@ class TodoistClient:
                 headers=self._headers,
             ) as resp:
                 resp.raise_for_status()
-                return await resp.json()
+                data = await resp.json()
+                return data.get("results", [])
 
     async def get_current_user(self) -> dict[str, Any]:
         """Return Todoist user info (id, email, full_name) to associate with Discord user."""
         async with aiohttp.ClientSession() as s:
             async with s.get(
-                f"{TODOIST_SYNC}/user",
+                f"{TODOIST_API}/user",
                 headers=self._headers,
             ) as resp:
                 resp.raise_for_status()

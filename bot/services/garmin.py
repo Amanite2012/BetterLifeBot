@@ -1,96 +1,87 @@
-"""Garmin Health API client (OAuth 1.0a — Garmin uses OAuth 1 for third-party)."""
+"""Garmin Health data client — garminconnect (unofficial Garmin Connect web API)."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import date
+from functools import partial
 from typing import Any
 
-import aiohttp
-
-from bot.config import get_settings
-from bot.services.encryption import decrypt, encrypt
+from garminconnect import (
+    Garmin,
+    GarminConnectAuthenticationError,
+    GarminConnectConnectionError,
+)
 
 logger = logging.getLogger(__name__)
 
-GARMIN_WELLNESS = "https://apis.garmin.com/wellness-api/rest"
-GARMIN_AUTH_BASE = "https://connectapi.garmin.com"
+
+async def connect(email: str, password: str) -> str:
+    """Authenticate with Garmin Connect and return serialized garth token data."""
+    def _login() -> str:
+        api = Garmin(email, password)
+        api.login()
+        return api.garth.dumps()
+
+    try:
+        return await asyncio.get_event_loop().run_in_executor(None, _login)
+    except GarminConnectAuthenticationError as e:
+        raise ValueError(f"Email ou mot de passe incorrect : {e}") from e
+    except GarminConnectConnectionError as e:
+        raise ConnectionError(f"Impossible de joindre Garmin Connect : {e}") from e
 
 
 class GarminClient:
-    """Thin async wrapper around the Garmin Health SDK wellness endpoints."""
+    def __init__(self, token_data: str) -> None:
+        self._token_data = token_data
 
-    def __init__(self, access_token: str, access_token_secret: str) -> None:
-        self._token = access_token
-        self._secret = access_token_secret
+    def _api(self) -> Garmin:
+        api = Garmin()
+        api.garth.loads(self._token_data)
+        return api
 
-    def _oauth_header(self) -> dict[str, str]:
-        # In production this would be a proper OAuth 1.0a signature.
-        # We use a placeholder that must be replaced with a real OAuth lib
-        # (e.g. requests-oauthlib adapted for aiohttp).
-        return {"Authorization": f"Bearer {self._token}"}
+    async def _run(self, fn, *args: Any) -> Any:
+        return await asyncio.get_event_loop().run_in_executor(None, partial(fn, *args))
+
+    def dump_token(self) -> str:
+        """Return updated garth token JSON (captures any token refresh that occurred)."""
+        return self._api().garth.dumps()
 
     async def get_daily_sleep(self, for_date: date) -> dict[str, Any]:
-        url = f"{GARMIN_WELLNESS}/dailySleep"
-        async with aiohttp.ClientSession() as s:
-            async with s.get(
-                url,
-                headers=self._oauth_header(),
-                params={"uploadStartTimeInSeconds": _date_to_epoch(for_date)},
-            ) as resp:
-                resp.raise_for_status()
-                return await resp.json()
+        api = self._api()
+        data = await self._run(api.get_sleep_data, for_date.isoformat())
+        return data if isinstance(data, dict) else {}
 
     async def get_sleep_score(self, for_date: date) -> dict[str, Any]:
-        url = f"{GARMIN_WELLNESS}/sleepScore"
-        async with aiohttp.ClientSession() as s:
-            async with s.get(
-                url,
-                headers=self._oauth_header(),
-                params={"date": for_date.isoformat()},
-            ) as resp:
-                resp.raise_for_status()
-                return await resp.json()
+        # Sleep score lives inside the same sleep data response
+        return await self.get_daily_sleep(for_date)
 
     async def get_body_battery(self) -> list[dict[str, Any]]:
-        url = f"{GARMIN_WELLNESS}/bodyBattery"
-        async with aiohttp.ClientSession() as s:
-            async with s.get(url, headers=self._oauth_header()) as resp:
-                resp.raise_for_status()
-                return await resp.json()
+        api = self._api()
+        today = date.today().isoformat()
+        data = await self._run(api.get_body_battery, today, today)
+        if not isinstance(data, list) or not data:
+            return []
+        # garminconnect: [{bodyBatteryValuesArray: [[timestamp_gmt, level, ...], ...]}]
+        values = data[0].get("bodyBatteryValuesArray", [])
+        return [{"bodyBattery": v[1]} for v in values if len(v) > 1]
 
     async def get_stress(self, for_date: date) -> dict[str, Any]:
-        url = f"{GARMIN_WELLNESS}/stressLevel"
-        async with aiohttp.ClientSession() as s:
-            async with s.get(
-                url,
-                headers=self._oauth_header(),
-                params={"date": for_date.isoformat()},
-            ) as resp:
-                resp.raise_for_status()
-                return await resp.json()
+        api = self._api()
+        data = await self._run(api.get_stress_data, for_date.isoformat())
+        if not isinstance(data, dict):
+            return {"averageStressLevel": 25}
+        values = data.get("stressValuesArray", [])
+        valid = [v[1] for v in values if len(v) > 1 and v[1] >= 0]
+        avg = int(sum(valid) / len(valid)) if valid else 25
+        return {"averageStressLevel": avg}
 
     async def get_hrv(self, for_date: date) -> dict[str, Any]:
-        url = f"{GARMIN_WELLNESS}/heartRateZones"
-        async with aiohttp.ClientSession() as s:
-            async with s.get(
-                url,
-                headers=self._oauth_header(),
-                params={"date": for_date.isoformat()},
-            ) as resp:
-                resp.raise_for_status()
-                return await resp.json()
-
-
-def build_oauth_url() -> str:
-    settings = get_settings()
-    # OAuth 1.0a request-token step: consumer_key identifies the application
-    return (
-        f"{GARMIN_AUTH_BASE}/oauth-service/oauth/authorize"
-        f"?oauth_consumer_key={settings.garmin_consumer_key}"
-        f"&oauth_callback={settings.garmin_oauth_callback_url}"
-    )
-
-
-def _date_to_epoch(d: date) -> int:
-    from datetime import datetime, timezone
-    return int(datetime(d.year, d.month, d.day, tzinfo=timezone.utc).timestamp())
+        api = self._api()
+        try:
+            data = await self._run(api.get_hrv_data, for_date.isoformat())
+            summary = data.get("hrvSummary", {}) if isinstance(data, dict) else {}
+            avg = summary.get("lastNightAvg") or 0
+            return {"heartRateZones": [{"maxHeartRate": float(avg)}] if avg else []}
+        except Exception:
+            return {"heartRateZones": []}

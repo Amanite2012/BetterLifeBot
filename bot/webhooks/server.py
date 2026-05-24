@@ -1,6 +1,7 @@
 """FastAPI webhook server — receives Todoist webhooks and Google OAuth callbacks."""
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import logging
@@ -42,12 +43,13 @@ async def todoist_webhook(
     body = await request.body()
     settings = get_settings()
 
-    # Verify HMAC signature
-    expected = hmac.new(
+    # Verify HMAC signature (Todoist sends base64-encoded SHA256)
+    digest = hmac.new(
         settings.todoist_webhook_secret.encode(),
         body,
         hashlib.sha256,
-    ).hexdigest()
+    ).digest()
+    expected = base64.b64encode(digest).decode()
     if not hmac.compare_digest(expected, x_todoist_hmac_sha256):
         raise HTTPException(status_code=401, detail="Invalid signature")
 
@@ -178,39 +180,6 @@ async def google_callback(code: str, state: str) -> dict:
 
     return {"status": "ok", "message": "Google Calendar connecté avec succès !"}
 
-
-# ── Garmin OAuth Callback ─────────────────────────────────────────────────────
-
-@app.get("/garmin/callback")
-async def garmin_callback(
-    oauth_token: str,
-    oauth_verifier: str,
-    discord_id: int,
-) -> dict:
-    """Exchange Garmin OAuth verifier for access token."""
-    # In production: use proper OAuth 1.0a library to exchange tokens
-    # Placeholder: store the tokens encrypted
-    logger.info("Garmin OAuth callback for discord_id=%s", discord_id)
-
-    async with get_session() as session:
-        user = await get_user_by_discord_id(session, discord_id)
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        existing = await session.execute(
-            select(GarminToken).where(GarminToken.user_id == user.id)
-        )
-        token = existing.scalar_one_or_none()
-        if not token:
-            token = GarminToken(user_id=user.id)
-
-        # Exchange oauth_token + oauth_verifier for access_token (OAuth 1.0a step)
-        # This would call Garmin's token endpoint in production
-        token.access_token_enc = encrypt(oauth_token)
-        token.refresh_token_enc = encrypt(oauth_verifier)
-        session.add(token)
-
-    return {"status": "ok", "message": "Garmin connecté avec succès !"}
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
